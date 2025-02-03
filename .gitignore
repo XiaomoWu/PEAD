@@ -1,8 +1,11 @@
 # ignore directory
 data
-saved_model
 tmp_trainer
 _unsloth_sentencepiece_temp
+saved_results/checkpoints
+saved_results/archive
+wandb
 
 # ignore file
-finetune.py
+data.ipynb
+inference_hf.ipynb
