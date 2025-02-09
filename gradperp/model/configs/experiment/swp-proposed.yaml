@@ -1,0 +1,154 @@
+program: gradperp/model/run.py  # for weird reasons I can't use ${oc.env:}
+# name: "[pred_model]+[weighting]+[aux_code]:car_?_call_?_?_std~frtxt@[tx_id],roll???"
+name: 'tsfmmq03.3.qsz=256+gradperp01.m=4+aux01+lr.1e-4:car_c5_call_0_21_std~frtxt@tx_v3.mpnet,rollqtr'  # gradnorm requires larger memory, run separately
+project: earnings-call-v4
+method: grid
+metric:
+  goal: maximize
+  name: val/EV
+
+parameters:
+  # -----------------
+  # override by group
+  # -----------------
+  datamodule:
+    value: frtxt
+  model: 
+    value: frtxtmq
+  optimizer:
+    value: adamw
+  weighting_method:
+    value: gradperp
+
+  callbacks:
+    value: [rich-progress-bar, model-checkpoint]
+  strategy:
+    value: deepspeed
+  logger:
+    value: wandb
+
+  # -------------------
+  # override individual
+  # -------------------
+  seed: 
+    values: [985]
+  model_id:
+    value: ${datamodule.split_id}
+  print_config:
+    value: false
+  test_after_train:
+    value: true
+
+
+  # ---------- datamodule -------------
+  datamodule.tx_df_name:
+    value: tx_v3
+  datamodule.num_workers:
+    value: 8
+  datamodule.bsz:
+    value: 32
+  datamodule.tasks:
+    value: ['car_c5_call_0_21_std', 'car_c5_call_0_0_std', 'car_c5_call_0_3_std', 'fund_0_90_std', 'inst_tr2_0_90_std', 'revision_scaled_by_price_90_std', 'demand_retail_3_std']  # aux01
+  datamodule.split_df_name:
+    value: split_rollqtr
+  datamodule.split_id:
+    values: ['20q3-22q2/22q3', '20q4-22q3/22q4']  # rollqtr (num: 52)
+  datamodule.train_val_split:
+    value: [0.8, 0.2]
+  datamodule.use_test_as_val:
+    value: false
+  datamodule.max_doc_len:
+    value: 512
+  datamodule.dataset_txt_return_type:
+    value: preemb
+  datamodule.datamodule_txt_return_type:
+    value: padded_tensor  # "padded_tensor" (for tsfm), "packed_tensor" (for rnn)
+  datamodule.preemb_dir:
+    value: ${oc.env:PREEMB_DIR}
+
+  # --------- model -----------
+  model.dropout:
+    value: 0.1
+  model.doc_encoder_lr:  # only used for non-MQ model
+    value: 1e-4  
+  model.fc_lr:  # only used for non-MQ model
+    value: 1e-4  
+  model.doc_encoding_pooling_method:
+    value: transformer_avg  # "transformer_avg" (enabled), "transformer_cls", "gru"
+  model.expand_wide_features:
+    value: true
+  model.lr_M:  # only used for learnable M
+    value: 0.1
+
+  model.qsz:
+    # qsz is the size of the task-query vector
+    values: [256]
+
+  
+  model.use_finratios:
+    value: true
+  model.use_mantxts:
+    value: true
+
+  model.output_final_features:
+    value: false
+
+  # --------- optimizer -----------
+
+  optimizer.lr:
+    value: 1e-4
+
+  # ---------- weighting method ----------
+  weighting_method.GradPerp.M:
+    value: 4  # default
+  weighting_method.GradPerp.qr_mode:
+    value: diag
+  weighting_method.GradPerp.beta1:
+    value: 0.98
+  weighting_method.GradPerp.normalize_G:
+    value: false
+
+  # -------- trainer ------------
+  trainer:
+    value: default
+  trainer.devices:
+    value: [0]
+  trainer.min_epochs: 
+    value: 7
+  trainer.max_epochs:
+    value: 7
+  trainer.num_sanity_val_steps:
+    value: 0
+  trainer.precision:
+    value: bf16-mixed
+
+  # --------- strategy -------------
+  strategy.stage:
+    value: 2
+  strategy.offload_optimizer:
+    value: false
+  strategy.offload_parameters:
+    value: false
+  strategy.offload_optimizer_device:
+    value: cpu
+  strategy.cpu_checkpointing:
+    value: false
+
+  strategy.allgather_bucket_size:
+    value: 6e8
+  strategy.reduce_bucket_size:
+    value: 6e8
+  
+  strategy.logging_level:
+    value: 40
+  strategy.logging_batch_size_per_gpu:
+    value: 1
+
+  # callbacks
+  callbacks.model_checkpoint.save_top_k: 
+    value: 1
+
+command:
+  - ${interpreter}
+  - ${program}
+  - ${args_no_hyphens}

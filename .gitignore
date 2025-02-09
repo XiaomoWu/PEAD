@@ -1,10 +1,14 @@
 # ignore directory
+archive
 data
+logs
 tmp_trainer
 _unsloth_sentencepiece_temp
 saved_results/checkpoints
 saved_results/archive
 wandb
+gradperp/checkpoints
+finetune/saved_results/checkpoints
 
 # ignore file
 data.ipynb
